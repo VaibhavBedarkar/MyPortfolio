@@ -24,14 +24,23 @@ jobs:
         npm ci
         npm run build
 
-    - name: Upload build folder to EC2
-      uses: appleboy/scp-action@v0.1.4
+    - name: Upload build folder via rsync over SSH
+      uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
-        source: "build/*"
-        target: "/var/www/react-app"
+        script: |
+          # Ensure target directory exists
+          mkdir -p /var/www/react-app
+
+          # Create a temp folder for upload
+          rm -rf ~/upload-react && mkdir ~/upload-react
+    - name: Copy build folder using rsync
+      run: |
+           rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key" build/ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/react-app
+      env: 
+        SSH_PRIVATE_KEY: ${{ secrets.EC2_KEY }}
 
     - name: Restart Nginx on EC2 (Amazon Linux specific)
       uses: appleboy/ssh-action@v1.0.0
